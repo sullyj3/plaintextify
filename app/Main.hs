@@ -7,17 +7,19 @@ import Control.Concurrent.Async
 import Control.Concurrent.MVar
 import qualified Data.Text as T
 import qualified Data.Text.IO as T
-import qualified Data.Text.Lazy as LT
 import qualified Data.Text.Encoding as T
 import Data.Text (Text)
 import Text.Pandoc
 import System.FilePath
-import Lens.Micro ((^.), (^?))
+import Lens.Micro
 import Data.ByteString (ByteString)
 import qualified Data.ByteString.Char8 as BS
+import Text.Html.Encoding.Detection
+import qualified Data.Text.ICU.Convert as ICUConvert
 
 data OutputMode = OutputStdout | OutputSingleFile String | OutputIndividualFiles
 
+main :: IO ()
 main = do
   -- todo add cli flag for mode
   let mode = OutputStdout
@@ -43,8 +45,19 @@ main = do
       "text/html" -> pure ()
       _ -> error $ "expected html, got " <> show content_type
 
-    -- TODO do proper charset detection
-    let body = T.decodeUtf8Lenient $ BS.toStrict $ response ^. responseBody
+    let lbody = response ^. responseBody
+
+    -- detect charset. We want to be lenient here to support older websites
+    body <- case detect lbody of
+      Just "UTF-8" -> pure $ T.decodeUtf8Lenient $ BS.toStrict lbody
+      Just "windows-1252" -> do
+        converter <- ICUConvert.open "CP1252" Nothing
+        let strict = BS.toStrict lbody
+        pure $ ICUConvert.toUnicode converter strict
+      -- TODO detect other charsets
+      Just charset -> error $ "unsupported charset " <> show charset
+      Nothing -> error $ "could not detect charset of url " <> T.unpack url
+        
     pure (filename, body)
 
   -- concurrently convert each html page to plain text

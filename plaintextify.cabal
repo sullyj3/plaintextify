@@ -37,9 +37,11 @@ library
     , bytestring
     , directory
     , filepath
+    , html-charset
     , microlens
     , pandoc
     , text
+    , text-icu
     , wreq
   default-language: Haskell2010
 
@@ -56,10 +58,12 @@ executable plaintextify-exe
     , bytestring
     , directory
     , filepath
+    , html-charset
     , microlens
     , pandoc
     , plaintextify
     , text
+    , text-icu
     , wreq
   default-language: Haskell2010
 
@@ -77,9 +81,11 @@ test-suite plaintextify-test
     , bytestring
     , directory
     , filepath
+    , html-charset
     , microlens
     , pandoc
     , plaintextify
     , text
+    , text-icu
     , wreq
   default-language: Haskell2010
