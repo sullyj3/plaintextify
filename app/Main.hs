@@ -18,6 +18,7 @@ import qualified Data.ByteString.Char8 as BS
 import qualified Text.Html.Encoding.Detection as HtmlEncoding
 import qualified Data.Text.ICU.Convert as ICUConvert
 import Data.Char (toLower)
+import System.IO (stderr)
 
 data OutputMode = OutputStdout | OutputSingleFile String | OutputIndividualFiles
 
@@ -38,8 +39,9 @@ main = do
   lock <- newMVar ()
 
   -- fetch urls concurrently
+  T.hPutStrLn stderr $ "fetching..."
   (pages :: [Page LBS.ByteString]) <- forConcurrently urls $ \url -> do
-    withMVar lock $ \_ -> T.putStrLn $ "fetching " <> url
+    withMVar lock $ \_ -> T.hPutStrLn stderr $ "  " <> url
     response <- get $ T.unpack url
 
     -- expect html
