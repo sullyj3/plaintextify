@@ -13,16 +13,17 @@ import qualified Text.Pandoc as Pandoc
 import System.FilePath
 import Lens.Micro
 import Data.ByteString (ByteString)
+import qualified Data.ByteString.Lazy as LBS
 import qualified Data.ByteString.Char8 as BS
-import Text.Html.Encoding.Detection
+import qualified Text.Html.Encoding.Detection as HtmlEncoding
 import qualified Data.Text.ICU.Convert as ICUConvert
 import Data.Char (toLower)
 
 data OutputMode = OutputStdout | OutputSingleFile String | OutputIndividualFiles
 
-data Page = Page
-  { pageFilepath :: FilePath
-  , pageContent :: Text
+data Page a = Page
+  { pageUrl :: Text
+  , pageBody :: a
   }
 
 main :: IO ()
@@ -37,12 +38,9 @@ main = do
   lock <- newMVar ()
 
   -- fetch urls concurrently
-  (pages :: [Page]) <- forConcurrently urls $ \url -> do
+  (pages :: [Page LBS.ByteString]) <- forConcurrently urls $ \url -> do
     withMVar lock $ \_ -> T.putStrLn $ "fetching " <> url
     response <- get $ T.unpack url
-    let filename = case T.splitOn "/" url of
-          [] -> error "empty url"
-          segments -> (T.unpack $ last segments) -<.> "txt"
 
     -- expect html
     let content_type :: ByteString
@@ -52,9 +50,13 @@ main = do
       _ -> error $ "expected html, got " <> show content_type
 
     let lbody = response ^. responseBody
+    pure $ Page url lbody
 
-    -- detect charset. We want to be lenient here to support older websites
-    body <- case map toLower <$> detect lbody of
+  -- concurrently convert each html page to plain text
+  (plainPages :: [Page Text]) <- forConcurrently pages $ \(Page url lbody) -> do
+    -- detect charset and convert to unicode text. We want to be lenient here 
+    -- to support older websites.
+    bodyText <- case map toLower <$> HtmlEncoding.detect lbody of
       Just "utf-8" -> pure $ T.decodeUtf8Lenient $ BS.toStrict lbody
       Just "ascii" -> pure $ T.decodeUtf8Lenient $ BS.toStrict lbody
       Just "windows-1252" -> do
@@ -65,22 +67,23 @@ main = do
       Just charset -> error $ "unsupported charset " <> show charset
       Nothing -> error $ "could not detect charset of url " <> T.unpack url
         
-    pure $ Page filename body
-
-  -- concurrently convert each html page to plain text
-  plainPages <- forConcurrently pages $ \(Page filename body) -> Pandoc.runIOorExplode $ do
-    pd <- Pandoc.readHtml Pandoc.def body
-    plain <- Pandoc.writePlain Pandoc.def pd
-    pure (filename, plain)
+    -- convert html to plain text
+    Pandoc.runIOorExplode $ do
+      pandoc <- Pandoc.readHtml Pandoc.def bodyText
+      plain <- Pandoc.writePlain Pandoc.def pandoc
+      pure $ Page url plain
 
   case mode of
     OutputStdout -> do
       -- cat all pages to stdout
-      T.putStrLn $ T.unlines $ map snd plainPages
+      T.putStrLn $ T.unlines $ map pageBody plainPages
     OutputSingleFile path -> do
       -- write all pages to a single file
-      T.writeFile path $ T.unlines $ map snd plainPages
+      T.writeFile path $ T.unlines $ map pageBody plainPages
     OutputIndividualFiles -> do
       -- concurrently write each page to a file
-      forConcurrently_ plainPages $ \(filename, content) -> do
+      forConcurrently_ plainPages $ \(Page url content) -> do
+        let filename = case T.splitOn "/" url of
+              [] -> error "empty url"
+              segments -> (T.unpack $ last segments) -<.> "txt"
         T.writeFile filename content
