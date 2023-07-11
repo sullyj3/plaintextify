@@ -16,6 +16,7 @@ import Data.ByteString (ByteString)
 import qualified Data.ByteString.Char8 as BS
 import Text.Html.Encoding.Detection
 import qualified Data.Text.ICU.Convert as ICUConvert
+import Data.Char (toLower)
 
 data OutputMode = OutputStdout | OutputSingleFile String | OutputIndividualFiles
 
@@ -48,8 +49,8 @@ main = do
     let lbody = response ^. responseBody
 
     -- detect charset. We want to be lenient here to support older websites
-    body <- case detect lbody of
-      Just "UTF-8" -> pure $ T.decodeUtf8Lenient $ BS.toStrict lbody
+    body <- case map toLower <$> detect lbody of
+      Just "utf-8" -> pure $ T.decodeUtf8Lenient $ BS.toStrict lbody
       Just "windows-1252" -> do
         converter <- ICUConvert.open "CP1252" Nothing
         let strict = BS.toStrict lbody
