@@ -45,7 +45,7 @@ library
     , wreq
   default-language: Haskell2010
 
-executable plaintextify
+executable ptfy
   main-is: Main.hs
   other-modules:
       Paths_plaintextify
