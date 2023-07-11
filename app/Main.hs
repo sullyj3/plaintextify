@@ -9,7 +9,7 @@ import qualified Data.Text as T
 import qualified Data.Text.IO as T
 import qualified Data.Text.Encoding as T
 import Data.Text (Text)
-import Text.Pandoc
+import qualified Text.Pandoc as Pandoc
 import System.FilePath
 import Lens.Micro
 import Data.ByteString (ByteString)
@@ -19,6 +19,11 @@ import qualified Data.Text.ICU.Convert as ICUConvert
 import Data.Char (toLower)
 
 data OutputMode = OutputStdout | OutputSingleFile String | OutputIndividualFiles
+
+data Page = Page
+  { pageFilepath :: FilePath
+  , pageContent :: Text
+  }
 
 main :: IO ()
 main = do
@@ -32,7 +37,7 @@ main = do
   lock <- newMVar ()
 
   -- fetch urls concurrently
-  (pages :: [(FilePath, Text)]) <- forConcurrently urls $ \url -> do
+  (pages :: [Page]) <- forConcurrently urls $ \url -> do
     withMVar lock $ \_ -> T.putStrLn $ "fetching " <> url
     response <- get $ T.unpack url
     let filename = case T.splitOn "/" url of
@@ -51,20 +56,21 @@ main = do
     -- detect charset. We want to be lenient here to support older websites
     body <- case map toLower <$> detect lbody of
       Just "utf-8" -> pure $ T.decodeUtf8Lenient $ BS.toStrict lbody
+      Just "ascii" -> pure $ T.decodeUtf8Lenient $ BS.toStrict lbody
       Just "windows-1252" -> do
         converter <- ICUConvert.open "CP1252" Nothing
-        let strict = BS.toStrict lbody
-        pure $ ICUConvert.toUnicode converter strict
+        let strictBody = BS.toStrict lbody
+        pure $ ICUConvert.toUnicode converter strictBody
       -- TODO detect other charsets
       Just charset -> error $ "unsupported charset " <> show charset
       Nothing -> error $ "could not detect charset of url " <> T.unpack url
         
-    pure (filename, body)
+    pure $ Page filename body
 
   -- concurrently convert each html page to plain text
-  plainPages <- forConcurrently pages $ \(filename, body) -> runIOorExplode $ do
-    pd <- readHtml def body
-    plain <- writePlain def pd
+  plainPages <- forConcurrently pages $ \(Page filename body) -> Pandoc.runIOorExplode $ do
+    pd <- Pandoc.readHtml Pandoc.def body
+    plain <- Pandoc.writePlain Pandoc.def pd
     pure (filename, plain)
 
   case mode of
