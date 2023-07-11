@@ -33,6 +33,7 @@ main = do
   let mode = OutputStdout
 
   -- get newline separated urls from stdin
+  -- TODO sanitize input (eg check for no urls supplied)
   urls <- T.lines <$> T.getContents
 
   -- create lock for stdout in order to prevent interleaved output
@@ -53,6 +54,9 @@ main = do
 
     let lbody = response ^. responseBody
     pure $ Page url lbody
+
+  T.hPutStrLn stderr $ "done."
+  T.hPutStrLn stderr $ ""
 
   -- concurrently convert each html page to plain text
   (plainPages :: [Page Text]) <- forConcurrently pages $ \(Page url lbody) -> do
