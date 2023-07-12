@@ -7,7 +7,7 @@ import Control.Concurrent.Async
 import Control.Concurrent.MVar
 import qualified Data.Text as T
 import qualified Data.Text.IO as T
-import qualified Data.Text.Encoding as T
+import qualified Data.Text.Encoding as Enc
 import Data.Text (Text)
 import qualified Text.Pandoc as Pandoc
 import System.FilePath
@@ -62,14 +62,14 @@ main = do
   (plainPages :: [Page Text]) <- forConcurrently pages $ \(Page url lbody) -> do
     -- detect charset and convert to unicode text. We want to be lenient here 
     -- to support older websites.
+    let strictBody = BS.toStrict lbody
     bodyText <- case map toLower <$> HtmlEncoding.detect lbody of
-      Just "utf-8" -> pure $ T.decodeUtf8Lenient $ BS.toStrict lbody
-      Just "ascii" -> pure $ T.decodeUtf8Lenient $ BS.toStrict lbody
+      Just "utf-8" -> pure $ Enc.decodeUtf8Lenient strictBody
+      Just "ascii" -> pure $ Enc.decodeUtf8Lenient strictBody
+      Just "iso-8859-1" -> pure $ Enc.decodeLatin1 strictBody
       Just "windows-1252" -> do
         converter <- ICUConvert.open "CP1252" Nothing
-        let strictBody = BS.toStrict lbody
         pure $ ICUConvert.toUnicode converter strictBody
-      -- TODO detect other charsets
       Just charset -> error $ "unsupported charset " <> show charset
       Nothing -> error $ "could not detect charset of url " <> T.unpack url
         
