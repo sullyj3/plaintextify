@@ -1,5 +1,6 @@
 {-# language ScopedTypeVariables #-}
 {-# language OverloadedStrings #-}
+{-# language BlockArguments #-}
 module Main (main) where
 
 import Network.Wreq (get, responseBody, responseHeader)
@@ -18,7 +19,9 @@ import qualified Data.ByteString.Char8 as BS
 import qualified Text.Html.Encoding.Detection as HtmlEncoding
 import qualified Data.Text.ICU.Convert as ICUConvert
 import Data.Char (toLower)
-import System.IO (stderr)
+import System.IO (stderr, hFlush)
+import Data.Foldable
+import System.Console.ANSI
 
 data OutputMode = OutputStdout | OutputSingleFile String | OutputIndividualFiles
 
@@ -36,13 +39,23 @@ main = do
   -- TODO sanitize input (eg check for no urls supplied)
   urls <- T.lines <$> T.getContents
 
+  -- count how many pages have been fetched
+  let nToFetch = length urls
+  nFetchedVar <- newMVar 0
+
+  T.hPutStrLn stderr $ "fetching..."
+  for_ urls \url -> T.hPutStrLn stderr $ "  " <> url
+
+
+  let showNFetched :: Int -> Text
+      showNFetched n = "( " <> T.pack (show n) <> "/" <> T.pack (show nToFetch) <> " )"
+  T.hPutStrLn stderr $ showNFetched 0
+
   -- create lock for stdout in order to prevent interleaved output
-  lock <- newMVar ()
+  stdoutLock <- newMVar ()
 
   -- fetch urls concurrently
-  T.hPutStrLn stderr $ "fetching..."
   (pages :: [Page LBS.ByteString]) <- forConcurrently urls $ \url -> do
-    withMVar lock $ \_ -> T.hPutStrLn stderr $ "  " <> url
     response <- get $ T.unpack url
 
     -- expect html
@@ -53,6 +66,12 @@ main = do
       _ -> error $ "expected html, got " <> show content_type
 
     let lbody = response ^. responseBody
+    nFetched <- modifyMVar nFetchedVar \n -> pure (n+1, n+1)
+    withMVar stdoutLock \_ -> do
+      hCursorUpLine stderr 1
+      hClearLine stderr
+      T.hPutStrLn stderr $ showNFetched nFetched
+
     pure $ Page url lbody
 
   T.hPutStrLn stderr $ "done."
