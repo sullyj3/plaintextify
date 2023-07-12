@@ -39,14 +39,9 @@ main = do
   -- TODO sanitize input (eg check for no urls supplied)
   urls <- T.words <$> T.getContents
 
-  -- count how many pages have been fetched
   let nToFetch = length urls
-  nFetchedVar <- newMVar 0
 
-  -- create lock for stdout in order to prevent interleaved output
-  stdoutLock <- newMVar ()
-
-  let showNFetched :: Int -> Text
+      showNFetched :: Int -> Text
       showNFetched n = "( " <> T.pack (show n) <> "/" <> T.pack (show nToFetch) <> " )"
 
       fetchPage :: Text -> IO (Page LBS.ByteString)
@@ -61,12 +56,6 @@ main = do
           _ -> error $ "expected html, got " <> show content_type
 
         let lbody = response ^. responseBody
-        nFetched <- modifyMVar nFetchedVar \n -> pure (n+1, n+1)
-        withMVar stdoutLock \_ -> do
-          hCursorUpLine stderr 1
-          hClearLine stderr
-          T.hPutStrLn stderr $ showNFetched nFetched
-
         pure $ Page url lbody
 
       toPlainTextPage :: Page LBS.ByteString -> IO (Page Text)
@@ -90,19 +79,29 @@ main = do
           plain <- Pandoc.writePlain Pandoc.def pandoc
           pure $ Page url plain
 
-
-  T.hPutStrLn stderr $ "fetching..."
+  T.hPutStrLn stderr $ "fetching and converting pages..."
   for_ urls \url -> T.hPutStrLn stderr $ "  " <> url
   T.hPutStrLn stderr $ showNFetched 0
 
-  -- fetch urls concurrently
-  (pages :: [Page LBS.ByteString]) <- mapConcurrently fetchPage urls
+  -- create lock for stdout in order to prevent interleaved output
+  stdoutLock <- newMVar ()
+
+  -- track how many pages have been fetched and processed
+  nFetchedVar <- newMVar 0
+
+  -- concurrently fetch and convert pages
+  (plainPages :: [Page Text]) <- forConcurrently urls \url -> do
+    lpage <- fetchPage url
+    plainTextPage <- toPlainTextPage lpage
+    nFetched <- modifyMVar nFetchedVar \n -> pure (n+1, n+1)
+    withMVar stdoutLock \_ -> do
+      hCursorUpLine stderr 1
+      hClearLine stderr
+      T.hPutStrLn stderr $ showNFetched nFetched
+    pure plainTextPage
 
   T.hPutStrLn stderr $ "done."
   T.hPutStrLn stderr $ ""
-
-  -- concurrently convert each html page to plain text
-  (plainPages :: [Page Text]) <- mapConcurrently toPlainTextPage pages
 
   case mode of
     OutputStdout -> do
