@@ -40,6 +40,9 @@ main = do
   -- TODO sanitize input (eg check for no urls supplied)
   urls <- T.words <$> T.getContents
 
+  -- lock for stdout to prevent concurrent output from being interleaved
+  stdoutLock <- newMVar ()
+
   let nToFetch = length urls
 
       showNFetched :: Int -> Text
@@ -72,14 +75,17 @@ main = do
             converter <- ICUConvert.open "CP1252" Nothing
             pure $ ICUConvert.toUnicode converter strictBody
           Just charset -> do
-            T.hPutStrLn stderr $
-              "WARNING: unsupported charset " <> T.pack charset <> " for url " <> 
-                url <> ", attempting to decode as utf-8"
+            -- TODO BUG: this will interact badly with progress counter
+            withMVar stdoutLock \_ ->
+              T.hPutStrLn stderr $
+                "WARNING: unsupported charset " <> T.pack charset <> " for url " <> 
+                  url <> ", attempting to decode as utf-8"
             pure $ Enc.decodeUtf8Lenient strictBody
           Nothing -> do
-            T.hPutStrLn stderr $
-              "WARNING: could not detect charset for url " <> url <> 
-                ", attempting to decode as utf-8"
+            withMVar stdoutLock \_ ->
+              T.hPutStrLn stderr $
+                "WARNING: could not detect charset for url " <> url <> 
+                  ", attempting to decode as utf-8"
             pure $ Enc.decodeUtf8Lenient strictBody
         pure $ Page url bodyText
 
@@ -92,9 +98,6 @@ main = do
   T.hPutStrLn stderr $ "fetching and converting pages..."
   for_ urls \url -> T.hPutStrLn stderr $ "  " <> url
   T.hPutStrLn stderr $ showNFetched 0
-
-  -- create lock for stdout in order to prevent interleaved output
-  stdoutLock <- newMVar ()
 
   -- track how many pages have been fetched and processed
   nFetchedVar <- newMVar 0
