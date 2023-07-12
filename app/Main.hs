@@ -70,9 +70,17 @@ main = do
           Just "windows-1252" -> do
             converter <- ICUConvert.open "CP1252" Nothing
             pure $ ICUConvert.toUnicode converter strictBody
-          Just charset -> error $ "unsupported charset " <> show charset
-          Nothing -> error $ "could not detect charset of url " <> T.unpack url
-            
+          Just charset -> do
+            T.hPutStrLn stderr $
+              "WARNING: unsupported charset " <> (T.pack charset) <> " for url " <> 
+                url <> ", attempting to decode as utf-8"
+            pure $ Enc.decodeUtf8Lenient strictBody
+          Nothing -> do
+            T.hPutStrLn stderr $
+              "WARNING: could not detect charset for url " <> url <> 
+                ", attempting to decode as utf-8"
+            pure $ Enc.decodeUtf8Lenient strictBody
+          
         -- convert html to plain text
         Pandoc.runIOorExplode $ do
           pandoc <- Pandoc.readHtml Pandoc.def bodyText
