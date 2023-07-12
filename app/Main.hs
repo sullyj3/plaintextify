@@ -21,6 +21,7 @@ import qualified Data.Text.ICU.Convert as ICUConvert
 import Data.Char (toLower)
 import System.IO (stderr, hFlush)
 import Data.Foldable
+import Control.Monad
 import System.Console.ANSI
 
 data OutputMode = OutputStdout | OutputSingleFile String | OutputIndividualFiles
@@ -58,8 +59,8 @@ main = do
         let lbody = response ^. responseBody
         pure $ Page url lbody
 
-      toPlainTextPage :: Page LBS.ByteString -> IO (Page Text)
-      toPlainTextPage (Page url lbody) = do
+      decodePage :: Page LBS.ByteString -> IO (Page Text)
+      decodePage (Page url lbody) = do
         -- detect charset and convert to unicode text. We want to be lenient here 
         -- to support older websites.
         let strictBody = BS.toStrict lbody
@@ -72,7 +73,7 @@ main = do
             pure $ ICUConvert.toUnicode converter strictBody
           Just charset -> do
             T.hPutStrLn stderr $
-              "WARNING: unsupported charset " <> (T.pack charset) <> " for url " <> 
+              "WARNING: unsupported charset " <> T.pack charset <> " for url " <> 
                 url <> ", attempting to decode as utf-8"
             pure $ Enc.decodeUtf8Lenient strictBody
           Nothing -> do
@@ -80,12 +81,13 @@ main = do
               "WARNING: could not detect charset for url " <> url <> 
                 ", attempting to decode as utf-8"
             pure $ Enc.decodeUtf8Lenient strictBody
-          
-        -- convert html to plain text
-        Pandoc.runIOorExplode $ do
-          pandoc <- Pandoc.readHtml Pandoc.def bodyText
-          plain <- Pandoc.writePlain Pandoc.def pandoc
-          pure $ Page url plain
+        pure $ Page url bodyText
+
+      toPlainTextPage :: Page Text -> IO (Page Text)
+      toPlainTextPage (Page url bodyText) = Pandoc.runIOorExplode $ do
+        pandoc <- Pandoc.readHtml Pandoc.def bodyText
+        plain <- Pandoc.writePlain Pandoc.def pandoc
+        pure $ Page url plain
 
   T.hPutStrLn stderr $ "fetching and converting pages..."
   for_ urls \url -> T.hPutStrLn stderr $ "  " <> url
@@ -99,8 +101,7 @@ main = do
 
   -- concurrently fetch and convert pages
   (plainPages :: [Page Text]) <- forConcurrently urls \url -> do
-    lpage <- fetchPage url
-    plainTextPage <- toPlainTextPage lpage
+    plainTextPage <- (toPlainTextPage <=< decodePage <=< fetchPage) url
     nFetched <- modifyMVar nFetchedVar \n -> pure (n+1, n+1)
     withMVar stdoutLock \_ -> do
       hCursorUpLine stderr 1
