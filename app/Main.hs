@@ -19,7 +19,7 @@ import qualified Data.ByteString.Char8 as BS
 import qualified Text.Html.Encoding.Detection as HtmlEncoding
 import qualified Data.Text.ICU.Convert as ICUConvert
 import Data.Char (toLower)
-import System.IO (stderr, hFlush)
+import System.IO (stderr)
 import Data.Foldable
 import Control.Monad
 import System.Console.ANSI
@@ -96,7 +96,7 @@ main = do
         plain <- Pandoc.writePlain Pandoc.def pandoc
         pure $ Page url plain
 
-  T.hPutStrLn stderr $ "fetching and converting pages..."
+  T.hPutStrLn stderr "fetching and converting pages..."
   for_ urls \url -> T.hPutStrLn stderr $ "  " <> url
   T.hPutStrLn stderr $ showNFetched 0
 
@@ -113,11 +113,11 @@ main = do
       T.hPutStrLn stderr $ showNFetched nFetched
     pure plainTextPage
 
-  T.hPutStrLn stderr $ "done."
+  T.hPutStrLn stderr "done."
 
   -- separate stderr output from stdout output
   -- TODO only print newline here if stdout is a terminal
-  T.hPutStrLn stderr $ ""
+  T.hPutStrLn stderr ""
 
   case mode of
     OutputStdout -> do
@@ -131,5 +131,5 @@ main = do
       forConcurrently_ plainPages $ \(Page url content) -> do
         let filename = case T.splitOn "/" url of
               [] -> error "empty url"
-              segments -> (T.unpack $ last segments) -<.> "txt"
+              segments -> T.unpack (last segments) -<.> "txt"
         T.writeFile filename content
