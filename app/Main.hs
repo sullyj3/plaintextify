@@ -40,10 +40,13 @@ main = do
   -- TODO sanitize input (eg check for no urls supplied)
   urls <- T.words <$> T.getContents
 
-  -- lock for stdout to prevent concurrent output from being interleaved
-  stdoutLock <- newMVar ()
+  -- lock for stderr to prevent concurrent output from being interleaved
+  stderrLock <- newMVar ()
 
   let nToFetch = length urls
+
+      concurrentLogStderr :: Text -> IO ()
+      concurrentLogStderr msg = withMVar stderrLock \_ -> T.hPutStrLn stderr msg
 
       showNFetched :: Int -> Text
       showNFetched n = "( " <> T.pack (show n) <> "/" <> T.pack (show nToFetch) <> " )"
@@ -76,16 +79,14 @@ main = do
             pure $ ICUConvert.toUnicode converter strictBody
           Just charset -> do
             -- TODO BUG: this will interact badly with progress counter
-            withMVar stdoutLock \_ ->
-              T.hPutStrLn stderr $
-                "WARNING: unsupported charset " <> T.pack charset <> " for url " <> 
-                  url <> ", attempting to decode as utf-8"
+            concurrentLogStderr $
+              "WARNING: unsupported charset " <> T.pack charset <> " for url " <> 
+                url <> ", attempting to decode as utf-8"
             pure $ Enc.decodeUtf8Lenient strictBody
           Nothing -> do
-            withMVar stdoutLock \_ ->
-              T.hPutStrLn stderr $
-                "WARNING: could not detect charset for url " <> url <> 
-                  ", attempting to decode as utf-8"
+            concurrentLogStderr $
+              "WARNING: could not detect charset for url " <> url <> 
+                ", attempting to decode as utf-8"
             pure $ Enc.decodeUtf8Lenient strictBody
         pure $ Page url bodyText
 
@@ -106,7 +107,7 @@ main = do
   (plainPages :: [Page Text]) <- forConcurrently urls \url -> do
     plainTextPage <- (toPlainTextPage <=< decodePage <=< fetchPage) url
     nFetched <- modifyMVar nFetchedVar \n -> pure (n+1, n+1)
-    withMVar stdoutLock \_ -> do
+    withMVar stderrLock \_ -> do
       hCursorUpLine stderr 1
       hClearLine stderr
       T.hPutStrLn stderr $ showNFetched nFetched
