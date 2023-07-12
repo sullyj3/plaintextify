@@ -114,6 +114,9 @@ main = do
     pure plainTextPage
 
   T.hPutStrLn stderr $ "done."
+
+  -- separate stderr output from stdout output
+  -- TODO only print newline here if stdout is a terminal
   T.hPutStrLn stderr $ ""
 
   case mode of
