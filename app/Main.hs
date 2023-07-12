@@ -35,9 +35,9 @@ main = do
   -- todo add cli flag for mode
   let mode = OutputStdout
 
-  -- get newline separated urls from stdin
+  -- get space separated urls from stdin
   -- TODO sanitize input (eg check for no urls supplied)
-  urls <- T.lines <$> T.getContents
+  urls <- T.words <$> T.getContents
 
   -- count how many pages have been fetched
   let nToFetch = length urls
