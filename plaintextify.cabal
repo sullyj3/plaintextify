@@ -1,6 +1,6 @@
 cabal-version: 1.12
 
--- This file has been generated from package.yaml by hpack version 0.35.1.
+-- This file has been generated from package.yaml by hpack version 0.35.2.
 --
 -- see: https://github.com/sol/hpack
 
@@ -25,6 +25,7 @@ source-repository head
 
 library
   exposed-modules:
+      Cli
       Lib
   other-modules:
       Paths_plaintextify
@@ -40,6 +41,7 @@ library
     , filepath
     , html-charset
     , microlens
+    , optparse-applicative
     , pandoc
     , text
     , text-icu
@@ -62,6 +64,7 @@ executable ptfy
     , filepath
     , html-charset
     , microlens
+    , optparse-applicative
     , pandoc
     , plaintextify
     , text
@@ -86,6 +89,7 @@ test-suite plaintextify-test
     , filepath
     , html-charset
     , microlens
+    , optparse-applicative
     , pandoc
     , plaintextify
     , text

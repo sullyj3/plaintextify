@@ -32,6 +32,7 @@ dependencies:
 - text-icu
 - html-charset
 - ansi-terminal
+- optparse-applicative
 
 ghc-options:
 - -Wall

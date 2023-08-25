@@ -23,8 +23,9 @@ import System.IO (stderr)
 import Data.Foldable
 import Control.Monad
 import System.Console.ANSI
+import qualified Cli
+import           Cli (InputType(..), OutputMode(..))
 
-data OutputMode = OutputStdout | OutputSingleFile String | OutputIndividualFiles
 
 data Page a = Page
   { pageUrl :: Text
@@ -34,7 +35,7 @@ data Page a = Page
 main :: IO ()
 main = do
   -- todo add cli flag for mode
-  let mode = OutputStdout
+  (inputType, outputMode) <- Cli.parseArgsTemp
 
   -- get space separated urls from stdin
   -- TODO sanitize input (eg check for no urls supplied)
@@ -119,7 +120,7 @@ main = do
   -- TODO only print newline here if stdout is a terminal
   T.hPutStrLn stderr ""
 
-  case mode of
+  case outputMode of
     OutputStdout -> do
       -- cat all pages to stdout
       T.putStrLn $ T.unlines $ map pageBody plainPages
