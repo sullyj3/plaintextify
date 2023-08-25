@@ -32,6 +32,21 @@ data Page a = Page
   , pageBody :: a
   }
 
+fetchPage :: Text -> IO (Page LBS.ByteString)
+fetchPage url = do
+  response <- get $ T.unpack url
+
+  -- expect html
+  let content_type :: ByteString
+      content_type = response ^. responseHeader "Content-Type"
+  case BS.take 9 content_type of
+    "text/html" -> pure ()
+    _ -> error $ "expected html, got " <> show content_type
+
+  let lbody = response ^. responseBody
+  pure $ Page url lbody
+
+
 main :: IO ()
 main = do
   -- todo add cli flag for mode
@@ -46,56 +61,11 @@ main = do
 
   let nToFetch = length urls
 
-      concurrentLogStderr :: Text -> IO ()
-      concurrentLogStderr msg = withMVar stderrLock \_ -> T.hPutStrLn stderr msg
-
       showNFetched :: Int -> Text
       showNFetched n = "( " <> T.pack (show n) <> "/" <> T.pack (show nToFetch) <> " )"
 
-      fetchPage :: Text -> IO (Page LBS.ByteString)
-      fetchPage url = do
-        response <- get $ T.unpack url
-
-        -- expect html
-        let content_type :: ByteString
-            content_type = response ^. responseHeader "Content-Type"
-        case BS.take 9 content_type of
-          "text/html" -> pure ()
-          _ -> error $ "expected html, got " <> show content_type
-
-        let lbody = response ^. responseBody
-        pure $ Page url lbody
-
-      decodePage :: Page LBS.ByteString -> IO (Page Text)
-      decodePage (Page url lbody) = do
-        -- detect charset and convert to unicode text. We want to be lenient here 
-        -- to support older websites.
-        let strictBody = BS.toStrict lbody
-        bodyText <- case map toLower <$> HtmlEncoding.detect lbody of
-          Just "utf-8" -> pure $ Enc.decodeUtf8Lenient strictBody
-          Just "ascii" -> pure $ Enc.decodeUtf8Lenient strictBody
-          Just "iso-8859-1" -> pure $ Enc.decodeLatin1 strictBody
-          Just "windows-1252" -> do
-            converter <- ICUConvert.open "CP1252" Nothing
-            pure $ ICUConvert.toUnicode converter strictBody
-          Just charset -> do
-            -- TODO BUG: this will interact badly with progress counter
-            concurrentLogStderr $
-              "WARNING: unsupported charset " <> T.pack charset <> " for url " <> 
-                url <> ", attempting to decode as utf-8"
-            pure $ Enc.decodeUtf8Lenient strictBody
-          Nothing -> do
-            concurrentLogStderr $
-              "WARNING: could not detect charset for url " <> url <> 
-                ", attempting to decode as utf-8"
-            pure $ Enc.decodeUtf8Lenient strictBody
-        pure $ Page url bodyText
-
-      toPlainTextPage :: Page Text -> IO (Page Text)
-      toPlainTextPage (Page url bodyText) = Pandoc.runIOorExplode $ do
-        pandoc <- Pandoc.readHtml Pandoc.def bodyText
-        plain <- Pandoc.writePlain Pandoc.def pandoc
-        pure $ Page url plain
+      concurrentLogStderr :: Text -> IO ()
+      concurrentLogStderr msg = withMVar stderrLock \_ -> T.hPutStrLn stderr msg
 
   T.hPutStrLn stderr "fetching and converting pages..."
   for_ urls \url -> T.hPutStrLn stderr $ "  " <> url
@@ -106,7 +76,7 @@ main = do
 
   -- concurrently fetch and convert pages
   (plainPages :: [Page Text]) <- forConcurrently urls \url -> do
-    plainTextPage <- (toPlainTextPage <=< decodePage <=< fetchPage) url
+    plainTextPage <- (toPlainTextPage <=< decodePage concurrentLogStderr <=< fetchPage) url
     nFetched <- modifyMVar nFetchedVar \n -> pure (n+1, n+1)
     withMVar stderrLock \_ -> do
       hCursorUpLine stderr 1
@@ -120,7 +90,42 @@ main = do
   -- TODO only print newline here if stdout is a terminal
   T.hPutStrLn stderr ""
 
-  case outputMode of
+  output outputMode plainPages
+
+toPlainTextPage :: Page Text -> IO (Page Text)
+toPlainTextPage (Page url bodyText) = Pandoc.runIOorExplode $ do
+  pandoc <- Pandoc.readHtml Pandoc.def bodyText
+  plain <- Pandoc.writePlain Pandoc.def pandoc
+  pure $ Page url plain
+
+decodePage :: (Text -> IO ()) -> Page LBS.ByteString -> IO (Page Text)
+decodePage log (Page url lbody) = do
+  -- detect charset and convert to unicode text. We want to be lenient here 
+  -- to support older websites.
+  let strictBody = BS.toStrict lbody
+  bodyText <- case map toLower <$> HtmlEncoding.detect lbody of
+    Just "utf-8" -> pure $ Enc.decodeUtf8Lenient strictBody
+    Just "ascii" -> pure $ Enc.decodeUtf8Lenient strictBody
+    Just "iso-8859-1" -> pure $ Enc.decodeLatin1 strictBody
+    Just "windows-1252" -> do
+      converter <- ICUConvert.open "CP1252" Nothing
+      pure $ ICUConvert.toUnicode converter strictBody
+    Just charset -> do
+      -- TODO BUG: this will interact badly with progress counter
+      log $
+        "WARNING: unsupported charset " <> T.pack charset <> " for url " <> 
+          url <> ", attempting to decode as utf-8"
+      pure $ Enc.decodeUtf8Lenient strictBody
+    Nothing -> do
+      log $
+        "WARNING: could not detect charset for url " <> url <> 
+          ", attempting to decode as utf-8"
+      pure $ Enc.decodeUtf8Lenient strictBody
+  pure $ Page url bodyText
+
+
+output :: OutputMode -> [Page Text] -> IO ()
+output outputMode plainPages = case outputMode of
     OutputStdout -> do
       -- cat all pages to stdout
       T.putStrLn $ T.unlines $ map pageBody plainPages
