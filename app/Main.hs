@@ -76,6 +76,7 @@ main = do
 
   -- concurrently fetch and convert pages
   (plainPages :: [Page Text]) <- forConcurrently urls \url -> do
+    -- TODO slow down requests to avoid being rate limited
     plainTextPage <- (toPlainTextPage <=< decodePage concurrentLogStderr <=< fetchPage) url
     nFetched <- modifyMVar nFetchedVar \n -> pure (n+1, n+1)
     withMVar stderrLock \_ -> do
