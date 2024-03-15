@@ -1,6 +1,6 @@
 cabal-version: 1.12
 
--- This file has been generated from package.yaml by hpack version 0.35.2.
+-- This file has been generated from package.yaml by hpack version 0.36.0.
 --
 -- see: https://github.com/sol/hpack
 
@@ -40,9 +40,12 @@ library
     , directory
     , filepath
     , html-charset
+    , iris
     , microlens
+    , mtl
     , optparse-applicative
     , pandoc
+    , pretty-terminal
     , text
     , text-icu
     , wreq
@@ -51,6 +54,7 @@ library
 executable ptfy
   main-is: Main.hs
   other-modules:
+      IrisMain
       Paths_plaintextify
   hs-source-dirs:
       app
@@ -63,10 +67,13 @@ executable ptfy
     , directory
     , filepath
     , html-charset
+    , iris
     , microlens
+    , mtl
     , optparse-applicative
     , pandoc
     , plaintextify
+    , pretty-terminal
     , text
     , text-icu
     , wreq
@@ -88,10 +95,13 @@ test-suite plaintextify-test
     , directory
     , filepath
     , html-charset
+    , iris
     , microlens
+    , mtl
     , optparse-applicative
     , pandoc
     , plaintextify
+    , pretty-terminal
     , text
     , text-icu
     , wreq
