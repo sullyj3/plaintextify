@@ -5,15 +5,26 @@
 
 packages:
 - completed:
-    hackage: html-charset-0.1.0@sha256:0dca1097494d008599b71b519c160eb5e51808f9adc3da4942f7d05f99b83d1f,2314
+    hackage: html-charset-0.1.1@sha256:b2c4e9adae1257e2fd416e35a579b517986f9a6b4a9f1c1778a18a4033b097df,2219
     pantry-tree:
-      sha256: bde99226dbcbd034874ac4d0409b0faa8078538a947910d7be943762162fc1f4
+      sha256: d4514bd80d595fe23220b5aa5e9b7c9d7022033690e61ec9db14b083b4934b43
       size: 490
   original:
-    hackage: html-charset-0.1.0@sha256:0dca1097494d008599b71b519c160eb5e51808f9adc3da4942f7d05f99b83d1f,2314
+    hackage: html-charset-0.1.1@sha256:b2c4e9adae1257e2fd416e35a579b517986f9a6b4a9f1c1778a18a4033b097df,2219
+- completed:
+    name: iris
+    pantry-tree:
+      sha256: 5be894cdb14caf6945443cec595f7017980824df0542ee374ea6f01f0a8a97e4
+      size: 3241
+    sha256: 25cec8be728f7cb0252f2ec8a9f23d5aef310c7244c2902982f85cf087303899
+    size: 17285162
+    url: https://github.com/chshersh/iris/archive/f74e261a5b1c3a423f729e12030b17c9fc1dcbfe.tar.gz
+    version: 0.1.0.0
+  original:
+    url: https://github.com/chshersh/iris/archive/f74e261a5b1c3a423f729e12030b17c9fc1dcbfe.tar.gz
 snapshots:
 - completed:
-    sha256: 5b002d57c51092aa58a8696ccf0993e74fa6ed2efd48e2bbca349e9c2f67c5ef
-    size: 713334
-    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/lts/22/15.yaml
-  original: lts-22.15
+    sha256: a81fb3877c4f9031e1325eb3935122e608d80715dc16b586eb11ddbff8671ecd
+    size: 640086
+    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/lts/21/25.yaml
+  original: lts-21.25

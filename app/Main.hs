@@ -26,6 +26,8 @@ import System.Console.ANSI
 import qualified Cli
 import           Cli (InputType(..), OutputMode(..))
 
+import qualified IrisMain
+
 
 data Page a = Page
   { pageUrl :: Text
@@ -48,7 +50,9 @@ fetchPage url = do
 
 
 main :: IO ()
-main = do
+main = IrisMain.main
+
+oldMain = do
   -- todo add cli flag for mode
   (inputType, outputMode) <- Cli.parseArgsTemp
 
