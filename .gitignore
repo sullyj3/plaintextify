@@ -1,4 +1,5 @@
 .taskStack
 .stack-work/
 test_urls.txt
+dist-newstyle/
 *~

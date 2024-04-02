@@ -1,0 +1,9 @@
+source-repository-package
+  type: git
+  location: https://github.com/chshersh/iris
+  tag: f74e261a5b1c3a423f729e12030b17c9fc1dcbfe
+
+verbose: 2
+packages: ./*.cabal
+with-compiler: ghc-9.4.8
+
