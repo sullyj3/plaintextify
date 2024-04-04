@@ -54,7 +54,6 @@ library
 executable ptfy
   main-is: Main.hs
   other-modules:
-      IrisMain
       Paths_plaintextify
   hs-source-dirs:
       app
