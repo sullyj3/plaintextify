@@ -1,7 +1,5 @@
-{-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE StrictData #-}
-{-# language ScopedTypeVariables #-}
 {-# language BlockArguments #-}
 
 module Plaintextify (plaintextify) where

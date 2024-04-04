@@ -1,9 +1,6 @@
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE StrictData #-}
 {-# LANGUAGE NamedFieldPuns #-}
-{-# language ScopedTypeVariables #-}
 {-# language BlockArguments #-}
 
 module Main (main) where

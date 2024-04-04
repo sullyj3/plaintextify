@@ -85,7 +85,7 @@ executable ptfy
     , text
     , text-icu
     , wreq
-  default-language: Haskell2010
+  default-language: GHC2021
 
 test-suite plaintextify-test
   import: relude-mixins
@@ -114,4 +114,4 @@ test-suite plaintextify-test
     , text
     , text-icu
     , wreq
-  default-language: Haskell2010
+  default-language: GHC2021
