@@ -1,4 +1,4 @@
-cabal-version: 2.0
+cabal-version: 2.2
 
 -- This file has been generated from package.yaml by hpack version 0.36.0.
 --
@@ -12,7 +12,7 @@ bug-reports:    https://github.com/githubuser/plaintextify/issues
 author:         Author name here
 maintainer:     example@example.com
 copyright:      2023 Author name here
-license:        BSD3
+license:        BSD-3-Clause
 license-file:   LICENSE
 build-type:     Simple
 extra-source-files:
@@ -23,7 +23,14 @@ source-repository head
   type: git
   location: https://github.com/githubuser/plaintextify
 
+common relude-mixins
+  mixins:   base hiding (Prelude)
+          , relude (Relude as Prelude)
+          , relude
+  build-depends: relude ^>= 1.2
+
 library
+  import: relude-mixins
   exposed-modules:
       Cli
       Lib
@@ -52,6 +59,7 @@ library
   default-language: GHC2021
 
 executable ptfy
+  import: relude-mixins
   main-is: Main.hs
   other-modules:
       Plaintextify
@@ -80,6 +88,7 @@ executable ptfy
   default-language: Haskell2010
 
 test-suite plaintextify-test
+  import: relude-mixins
   type: exitcode-stdio-1.0
   main-is: Spec.hs
   other-modules:

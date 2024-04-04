@@ -8,9 +8,6 @@
 
 module Main (main) where
 
-import Control.Monad.IO.Class (MonadIO (..))
-import Control.Monad.Reader (MonadReader)
-
 import qualified Data.Text as T
 import qualified Data.Text.IO as T
 
@@ -20,6 +17,7 @@ import qualified Paths_plaintextify as Autogen
 
 import qualified Cli
 import Plaintextify (plaintextify)
+import qualified Data.String as String
 
 newtype App a = App { unApp :: Iris.CliApp Cli.Options () a }
   deriving newtype
@@ -32,7 +30,7 @@ newtype App a = App { unApp :: Iris.CliApp Cli.Options () a }
 
 -- TODO use Pretty?
 progDesc :: String
-progDesc = unlines 
+progDesc = String.unlines
   [ "Fetch and convert web pages to plain text"
   , ""
   , "urls to fetch are read from stdin"

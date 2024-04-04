@@ -6,28 +6,22 @@
 
 module Plaintextify (plaintextify) where
 
-import Data.Foldable
-import Data.Text (Text)
-
 import qualified Data.Text as T
 import qualified Data.Text.IO as T
 
-import Network.Wreq (get, responseBody, responseHeader)
+import qualified Network.Wreq as Wreq
 import Control.Concurrent.Async
-import Control.Concurrent.MVar
 import qualified Data.Text.Encoding as Enc
 import qualified Text.Pandoc as Pandoc
 import System.FilePath
 import Lens.Micro
-import Data.ByteString (ByteString)
 import qualified Data.ByteString.Lazy as LBS
 import qualified Data.ByteString.Char8 as BS
 import qualified Text.Html.Encoding.Detection as HtmlEncoding
 import qualified Data.Text.ICU.Convert as ICUConvert
 import Data.Char (toLower)
-import System.IO (stderr)
-import Control.Monad
 import System.Console.ANSI
+import Control.Concurrent (withMVar, modifyMVar)
 
 import qualified Cli
 
@@ -38,16 +32,16 @@ data Page a = Page
 
 fetchPage :: Text -> IO (Page LBS.ByteString)
 fetchPage url = do
-  response <- get $ T.unpack url
+  response <- Wreq.get $ T.unpack url
 
   -- expect html
   let content_type :: ByteString
-      content_type = response ^. responseHeader "Content-Type"
+      content_type = response ^. Wreq.responseHeader "Content-Type"
   case BS.take 9 content_type of
     "text/html" -> pure ()
     _ -> error $ "expected html, got " <> show content_type
 
-  let lbody = response ^. responseBody
+  let lbody = response ^. Wreq.responseBody
   pure $ Page url lbody
 
 
@@ -135,9 +129,9 @@ output outputMode plainPages = case outputMode of
     Cli.OutputIndividualFiles -> do
       -- concurrently write each page to a file
       forConcurrently_ plainPages $ \(Page url content) -> do
-        let filename = case T.splitOn "/" url of
-              [] -> error "empty url"
-              segments -> T.unpack (last segments) -<.> "txt"
+        let filename = case nonEmpty $ T.splitOn "/" url of
+              Nothing -> error "empty url"
+              Just segments -> T.unpack (last segments) -<.> "txt"
         T.writeFile filename content
 
 
