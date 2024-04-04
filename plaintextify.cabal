@@ -54,6 +54,7 @@ library
 executable ptfy
   main-is: Main.hs
   other-modules:
+      Plaintextify
       Paths_plaintextify
   hs-source-dirs:
       app
