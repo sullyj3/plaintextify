@@ -85,17 +85,24 @@ appSettings = Iris.defaultCliEnvSettings
   , Iris.cliEnvSettingsCmdParser = Cli.optionsP
   }
 
+main :: IO ()
+main = Iris.runCliApp appSettings (unApp app)
+
 app :: App ()
 app = do
-  Cli.Options {Cli.optInputType, Cli.optOutputMode} <- Iris.asksCliEnv Iris.cliEnvCmd
-  let (_inputType, outputMode) = (optInputType, optOutputMode)
+  Cli.Options { Cli.optOutputMode } <- Iris.asksCliEnv Iris.cliEnvCmd
 
-  liftIO $ do
-    -- get space separated urls from stdin
+  -- get space separated urls from stdin
+  -- TODO sanitize input (eg check for no urls supplied)
+  -- TODO factor out means of getting urls (stdin, cli args)
+  urls <- liftIO $ T.words <$> T.getContents
 
-    -- TODO sanitize input (eg check for no urls supplied)
-    -- TODO factor out means of getting urls (stdin, cli args)
-    urls <- T.words <$> T.getContents
+  liftIO $ plaintextify urls optOutputMode
+
+
+-- TODO refactor this into the App monad
+plaintextify :: [Text] -> Cli.OutputMode -> IO ()
+plaintextify urls optOutputMode = do
 
     -- lock for stderr to prevent concurrent output from being interleaved
     stderrLock <- newMVar ()
@@ -132,7 +139,7 @@ app = do
     -- TODO only print newline here if stdout is a terminal
     T.hPutStrLn stderr ""
 
-    output outputMode plainPages
+    output optOutputMode plainPages
 
 toPlainTextPage :: Page Text -> IO (Page Text)
 toPlainTextPage (Page url bodyText) = Pandoc.runIOorExplode $ do
@@ -182,6 +189,4 @@ output outputMode plainPages = case outputMode of
               segments -> T.unpack (last segments) -<.> "txt"
         T.writeFile filename content
 
-main :: IO ()
-main = Iris.runCliApp appSettings (unApp app)
 
