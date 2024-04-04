@@ -1,48 +1,39 @@
-module Cli 
-  ( InputType(..)
-  , OutputMode(..)
-  , parseArgsTemp
-  ) where
+{-# LANGUAGE ApplicativeDo #-}
+module Cli (InputType(..), OutputMode(..), Options(..), optionsP) where
 
-import System.Environment (getArgs)
-import Options.Applicative
+import qualified Options.Applicative as Opt
 
 data InputType = InputUrls | InputHtmlFiles [FilePath]
-data InputMode = InputStdin
+  deriving Show
+-- data InputMode = InputStdin
 data OutputMode = OutputStdout | OutputSingleFile String | OutputIndividualFiles
-
-parseArgsTemp :: IO (InputType, OutputMode)
-parseArgsTemp = do
-  args <- getArgs
-  case args of
-    [] -> pure (InputUrls, OutputStdout)
-    ("--html-files":files ) -> pure (InputHtmlFiles files, OutputStdout)
-    _ -> error "invalid args"
+  deriving Show
 
 data Options = Options
-  { optOutputMode :: OutputMode
+  { optInputType :: InputType
+  , optOutputMode :: OutputMode
   }
+  deriving Show
 
-options :: Parser Options
-options = Options <$> outputMode
+optionsP :: Opt.Parser Options
+optionsP = do
+  optInputType <- inputTypeP
+  optOutputMode <- outputModeP
+  pure Options {optInputType, optOutputMode}
 
-outputMode :: Parser OutputMode
-outputMode = -- flags are mutually exclusive
-  outputIndividualFiles <|> outputSingleFile <|> outputStdout
+-- Defaults to InputUrls. Specify --html-files <FILES> to use InputHtmlFiles
+inputTypeP :: Opt.Parser InputType
+inputTypeP = do
+  -- TODO optparse applicative only supports one argument per option flag,
+  -- like `prog --flag arg1 --flag arg2`.
+  -- probably I should pass files as `strArgument`s
 
-outputIndividualFiles :: Parser OutputMode
-outputIndividualFiles = flag' OutputIndividualFiles
-  ( long "individual-files"
- <> short 'i'
- <> help "Output each page to a separate file" )
+  -- mHtmlFiles <- optional $ Opt.strOption $ mconcat
+  --   [ Opt.long "html-files"
+  --   , Opt.metavar "FILES"
+  --   , Opt.help "Space separated list of html files to process"
+  --   ]
+  pure InputUrls
 
-outputSingleFile :: Parser OutputMode
-outputSingleFile = OutputSingleFile <$> strOption
-  ( long "output-file"
- <> short 'o'
- <> metavar "FILE"
- <> help "Output all pages to a single file" )
-
--- Stdout is default
-outputStdout :: Parser OutputMode
-outputStdout = pure OutputStdout
+outputModeP :: Opt.Parser OutputMode
+outputModeP = pure OutputStdout

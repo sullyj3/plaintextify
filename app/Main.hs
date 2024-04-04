@@ -1,5 +1,4 @@
 {-# LANGUAGE DerivingStrategies #-}
-{-# LANGUAGE ApplicativeDo #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE StrictData #-}
@@ -16,7 +15,6 @@ import Data.Text (Text)
 
 import qualified Data.Text as T
 import qualified Data.Text.IO as T
-import qualified Options.Applicative as Opt
 
 import Network.Wreq (get, responseBody, responseHeader)
 import Control.Concurrent.Async
@@ -38,40 +36,7 @@ import System.Console.ANSI
 import qualified Iris
 import qualified Paths_plaintextify as Autogen
 
-data InputType = InputUrls | InputHtmlFiles [FilePath]
-  deriving Show
--- data InputMode = InputStdin
-data OutputMode = OutputStdout | OutputSingleFile String | OutputIndividualFiles
-  deriving Show
-
-data Options = Options
-  { optInputType :: InputType
-  , optOutputMode :: OutputMode
-  }
-  deriving Show
-
-optionsP :: Opt.Parser Options
-optionsP = do
-  optInputType <- inputTypeP
-  optOutputMode <- outputModeP
-  pure Options {optInputType, optOutputMode}
-
--- Defaults to InputUrls. Specify --html-files <FILES> to use InputHtmlFiles
-inputTypeP :: Opt.Parser InputType
-inputTypeP = do
-  -- TODO optparse applicative only supports one argument per option flag,
-  -- like `prog --flag arg1 --flag arg2`.
-  -- probably I should pass files as `strArgument`s
-
-  -- mHtmlFiles <- optional $ Opt.strOption $ mconcat
-  --   [ Opt.long "html-files"
-  --   , Opt.metavar "FILES"
-  --   , Opt.help "Space separated list of html files to process"
-  --   ]
-  pure InputUrls
-
-outputModeP :: Opt.Parser OutputMode
-outputModeP = pure OutputStdout
+import qualified Cli
 
 data Page a = Page
   { pageUrl :: Text
@@ -92,13 +57,13 @@ fetchPage url = do
   let lbody = response ^. responseBody
   pure $ Page url lbody
 
-newtype App a = App { unApp :: Iris.CliApp Options () a }
+newtype App a = App { unApp :: Iris.CliApp Cli.Options () a }
   deriving newtype
     ( Functor
     , Applicative
     , Monad
     , MonadIO
-    , MonadReader (Iris.CliEnv Options ())
+    , MonadReader (Iris.CliEnv Cli.Options ())
     )
 
 -- TODO use Pretty?
@@ -109,7 +74,7 @@ progDesc = unlines
   , "urls to fetch are read from stdin"
   ]
 
-appSettings :: Iris.CliEnvSettings Options ()
+appSettings :: Iris.CliEnvSettings Cli.Options ()
 appSettings = Iris.defaultCliEnvSettings
   { Iris.cliEnvSettingsHeaderDesc = "Plaintextify"
   , Iris.cliEnvSettingsProgDesc = progDesc
@@ -117,13 +82,13 @@ appSettings = Iris.defaultCliEnvSettings
       Just (Iris.defaultVersionSettings Autogen.version)
           { Iris.versionSettingsMkDesc = ("Plaintextify v" <>)
           }
-  , Iris.cliEnvSettingsCmdParser = optionsP
+  , Iris.cliEnvSettingsCmdParser = Cli.optionsP
   }
 
 app :: App ()
 app = do
-  options@Options {optInputType, optOutputMode} <- Iris.asksCliEnv Iris.cliEnvCmd
-  let (inputType, outputMode) = (optInputType, optOutputMode)
+  Cli.Options {Cli.optInputType, Cli.optOutputMode} <- Iris.asksCliEnv Iris.cliEnvCmd
+  let (_inputType, outputMode) = (optInputType, optOutputMode)
 
   liftIO $ do
     -- get space separated urls from stdin
@@ -201,15 +166,15 @@ decodePage log (Page url lbody) = do
   pure $ Page url bodyText
 
 
-output :: OutputMode -> [Page Text] -> IO ()
+output :: Cli.OutputMode -> [Page Text] -> IO ()
 output outputMode plainPages = case outputMode of
-    OutputStdout -> do
+    Cli.OutputStdout -> do
       -- cat all pages to stdout
       T.putStrLn $ T.unlines $ map pageBody plainPages
-    OutputSingleFile path -> do
+    Cli.OutputSingleFile path -> do
       -- write all pages to a single file
       T.writeFile path $ T.unlines $ map pageBody plainPages
-    OutputIndividualFiles -> do
+    Cli.OutputIndividualFiles -> do
       -- concurrently write each page to a file
       forConcurrently_ plainPages $ \(Page url content) -> do
         let filename = case T.splitOn "/" url of
